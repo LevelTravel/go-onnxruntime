@@ -1,5 +1,4 @@
 *.DS_Store
-*.json
+.idea
 .vscode
 vendor
-examples/_fixtures/*/

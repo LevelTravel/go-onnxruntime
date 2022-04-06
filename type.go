@@ -24,13 +24,11 @@ var types = []struct {
 	{reflect.TypeOf(int16(0)), C.ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16},
 	{reflect.TypeOf(int32(0)), C.ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32},
 	{reflect.TypeOf(int64(0)), C.ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64},
-	{reflect.TypeOf(string("")), C.ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING},
-	{reflect.TypeOf(bool(false)), C.ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL},
+	{reflect.TypeOf(""), C.ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING},
+	{reflect.TypeOf(false), C.ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL},
 	{reflect.TypeOf(float64(0)), C.ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE},
 	{reflect.TypeOf(uint32(0)), C.ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32},
 	{reflect.TypeOf(uint64(0)), C.ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64},
-	// {reflect.TypeOf(complex64(0)), C.ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64},
-	// {reflect.TypeOf(complex128(0)), C.ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128},
 }
 
 func fromType(ten *tensor.Dense) C.ONNXTensorElementDataType {

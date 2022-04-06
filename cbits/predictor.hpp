@@ -28,7 +28,7 @@ extern "C" {
 
   // Predictor + Profiling interface for Go
 
-  ORT_PredictorContext ORT_NewPredictor(const char *model_file, ORT_DeviceKind device, bool enable_trace, int device_id);
+  ORT_PredictorContext ORT_NewPredictor(void* model_data, size_t model_data_length, ORT_DeviceKind device, int device_id);
 
   void ORT_PredictorClear(ORT_PredictorContext pred);
 
@@ -42,14 +42,8 @@ extern "C" {
 
   void ORT_PredictorDelete(ORT_PredictorContext pred);
 
-  char *ORT_ProfilingRead(ORT_PredictorContext pred);
-
-  int64_t ORT_ProfilingGetStartTime(ORT_PredictorContext pred);
-
   void ORT_AddInput(ORT_PredictorContext pred, void *input, int64_t *dimensions,
                     int n_dim, ONNXTensorElementDataType dtype);
-  
-  void ORT_EndProfiling(ORT_PredictorContext pred);
 
   // Error interface for Go
 

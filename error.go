@@ -4,9 +4,8 @@ package onnxruntime
 // #include <stdlib.h>
 import "C"
 import (
+	"errors"
 	"unsafe"
-
-	"github.com/pkg/errors"
 )
 
 /* Description: The interface for getting errors thrown by C++.

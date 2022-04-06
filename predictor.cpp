@@ -21,30 +21,25 @@ using std::string;
 
 /* Description: The structure to handle the predictor for onnxruntime
  * Note: Call ConvertOutput before you want to read the outputs
- */ 
+ */
 struct Predictor {
-  Predictor(const string &model_file, ORT_DeviceKind device, bool enable_trace, int device_id);
+  Predictor(void* model_data, size_t model_data_length, ORT_DeviceKind device, int device_id);
   ~Predictor();
   void Predict(void);
   void ConvertOutput(void);
   void AddOutput(Ort::Value&);
   void Clear(void);
   void *ConvertTensorToPointer(Ort::Value&, size_t);
-  void EndProfiling(void);
   struct Onnxruntime_Env {
     Ort::Env env_;
     Ort::SessionOptions session_options_;
     /* Description: Follow the sample given in onnxruntime to initialize the environment
      * Referenced: https://github.com/microsoft/onnxruntime/blob/master/csharp/test/Microsoft.ML.OnnxRuntime.EndToEndTests.Capi/CXX_Api_Sample.cpp
      */
-    Onnxruntime_Env(ORT_DeviceKind device, bool enable_trace, int device_id) : env_(ORT_LOGGING_LEVEL_ERROR, "ort_predict") {
+    Onnxruntime_Env(ORT_DeviceKind device, int device_id) : env_(ORT_LOGGING_LEVEL_ERROR, "ort_predict") {
       // Initialize environment, could use ORT_LOGGING_LEVEL_VERBOSE to get more information
       // NOTE: Only one instance of env can exist at any point in time
-      
-      // enable profiling, the argument is the prefix you want for the file
-      if(enable_trace)
-      	session_options_.EnableProfiling("onnxruntime");
-      
+
       #ifdef ORT_WITH_GPU
       if (device == CUDA_DEVICE_KIND) {
         OrtSessionOptionsAppendExecutionProvider_CUDA(session_options_, device_id /* device id */);
@@ -61,25 +56,21 @@ struct Predictor {
     }
   } ort_env_;
   // Order matters when using member initializer lists
-  int64_t profile_start_;
   Ort::Session session_;
   Ort::AllocatorWithDefaultOptions allocator_;
-  string profile_filename_;
   std::vector<const char*> input_node_;
   std::vector<Ort::Value> input_;
   std::vector<const char*> output_node_;
   std::vector<Ort::Value> output_;
   std::vector<ORT_Value> converted_output_;
-  bool enable_trace_;
 };
 
 /* Description: Follow the sample given in onnxruntime to initialize the predictor
  * Referenced: https://github.com/microsoft/onnxruntime/blob/master/csharp/test/Microsoft.ML.OnnxRuntime.EndToEndTests.Capi/CXX_Api_Sample.cpp
  */
-Predictor::Predictor(const string &model_file, ORT_DeviceKind device, bool enable_trace, int device_id)
-  : ort_env_(device, enable_trace, device_id), 
-    session_(ort_env_.env_, model_file.c_str(), ort_env_.session_options_),
-    enable_trace_(enable_trace) {
+Predictor::Predictor(void* model_data, size_t model_data_length, ORT_DeviceKind device, int device_id)
+  : ort_env_(device, device_id),
+    session_(ort_env_.env_, model_data, model_data_length, ort_env_.session_options_) {
 
   // get input info
   size_t num_input_nodes = session_.GetInputCount();
@@ -96,7 +87,6 @@ Predictor::Predictor(const string &model_file, ORT_DeviceKind device, bool enabl
     // get output node names
     output_node_.push_back(session_.GetOutputName(i, allocator_));
   }
-
 }
 
 /* Description: clean up the predictor for next prediction */
@@ -207,7 +197,7 @@ void Predictor::AddOutput(Ort::Value& value) {
     });
     return;
   }
-  
+
   // need to be decomposed, it is a map or a sequence, both can be done in the same way
   size_t length = value.GetCount();
 
@@ -224,25 +214,10 @@ void Predictor::ConvertOutput(void) {
   }
 }
 
-void Predictor::EndProfiling(void) {
-  if(enable_trace_)
-  	profile_filename_ = session_.EndProfiling(allocator_);
-}
-
-void ORT_EndProfiling(ORT_PredictorContext pred) {
-  HANDLE_ORT_ERRORS(ORT_GlobalError);
-  auto predictor = (Predictor *)pred;
-  if (predictor == nullptr) {
-    throw std::runtime_error(std::string("Invalid pointer to the predictor in ORT_PredictorClear."));
-  }
-  predictor->EndProfiling();
-  END_HANDLE_ORT_ERRORS(ORT_GlobalError, void());
-}
-
 /* Description: The interface for Go to create a new predictor */
-ORT_PredictorContext ORT_NewPredictor(const char *model_file, ORT_DeviceKind device, bool enable_trace, int device_id) {
+ORT_PredictorContext ORT_NewPredictor(void* model_data, size_t model_data_length, ORT_DeviceKind device, int device_id) {
   HANDLE_ORT_ERRORS(ORT_GlobalError);
-  const auto ctx = new Predictor(model_file, device, enable_trace, device_id);
+  const auto ctx = new Predictor(model_data, model_data_length, device, device_id);
   return (ORT_PredictorContext) ctx;
   END_HANDLE_ORT_ERRORS(ORT_GlobalError, (ORT_PredictorContext) nullptr);
 }
@@ -316,56 +291,8 @@ void ORT_PredictorDelete(ORT_PredictorContext pred) {
     throw std::runtime_error(std::string("Invalid pointer to the predictor in ORT_PredictorDelete."));
   }
 
-  if(predictor -> profile_filename_ != "")
-  	remove((predictor -> profile_filename_).c_str());
-
   delete predictor;
   END_HANDLE_ORT_ERRORS(ORT_GlobalError, void());
-}
-
-/* Description: The interface for Go to read the profile in framework level from onnxruntime */
-char *ORT_ProfilingRead(ORT_PredictorContext pred) {
-  HANDLE_ORT_ERRORS(ORT_GlobalError);
-  auto predictor = (Predictor *)pred;
-  if (predictor == nullptr) {
-    throw std::runtime_error(std::string("Invalid pointer to the predictor in ORT_ProfilingRead."));
-  }
-  
-  std::stringstream ss;
-  std::ifstream in(predictor -> profile_filename_);
-  ss << in.rdbuf();
-  return strdup(ss.str().c_str());
-
-  END_HANDLE_ORT_ERRORS(ORT_GlobalError, strdup(""));
-}
-
-
-/* Description: High resolution clock might not be what we want
- *              so get the offset
- */
-static int64_t Getoffset(void) {
-	using namespace std::chrono;
-	high_resolution_clock::time_point t1 = high_resolution_clock::now();
-	system_clock::time_point t2 = system_clock::now();
-	system_clock::time_point t3 = system_clock::now();
-	high_resolution_clock::time_point t4 = high_resolution_clock::now();
-	return (static_cast<int64_t>(duration_cast<nanoseconds>(t2.time_since_epoch()).count()) 
-	      - static_cast<int64_t>(duration_cast<nanoseconds>(t1.time_since_epoch()).count())
-	      + static_cast<int64_t>(duration_cast<nanoseconds>(t3.time_since_epoch()).count())
-	      - static_cast<int64_t>(duration_cast<nanoseconds>(t4.time_since_epoch()).count())) / 2;
-}
-
-/* Description: The interface for Go to get the start time of the profiler */
-int64_t ORT_ProfilingGetStartTime(ORT_PredictorContext pred) {
-  HANDLE_ORT_ERRORS(ORT_GlobalError);
-  auto predictor = (Predictor *)pred;
-  if (predictor == nullptr) {
-    throw std::runtime_error(std::string("Invalid pointer to the predictor in ORT_ProfilingGetStartTime."));
-  }
-
-  return static_cast<int64_t>(predictor->session_.GetProfilingStartTimeNs()) + Getoffset();
-
-  END_HANDLE_ORT_ERRORS(ORT_GlobalError, -1);
 }
 
 /* Description: The interface for Go to add inputs into the predictor */
