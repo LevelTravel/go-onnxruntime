@@ -1,4 +1,4 @@
-module github.com/c3sr/go-onnxruntime
+module github.com/LevelTravel/go-onnxruntime
 
 go 1.18
 
