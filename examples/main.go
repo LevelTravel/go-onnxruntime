@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/c3sr/go-onnxruntime"
+	"github.com/LevelTravel/go-onnxruntime"
 	"gorgonia.org/tensor"
 )
 

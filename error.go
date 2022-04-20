@@ -56,11 +56,3 @@ func GetError() error {
 	ResetError()
 	return err
 }
-
-func PanicOnError() {
-	msg := C.ORT_GetErrorString()
-	if msg == nil {
-		return
-	}
-	panic(C.GoString(msg))
-}

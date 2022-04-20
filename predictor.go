@@ -17,8 +17,6 @@ type Predictor struct {
 }
 
 func New(model []byte) (*Predictor, error) {
-	defer PanicOnError()
-
 	modelPtr := unsafe.Pointer(&model[0])
 
 	pred := &Predictor{
@@ -45,7 +43,6 @@ func (p *Predictor) Close() {
 }
 
 func (p *Predictor) Predict(inputs []tensor.Tensor) error {
-	defer PanicOnError()
 	if len(inputs) < 1 {
 		return fmt.Errorf("input nil or empty")
 	}
@@ -81,8 +78,6 @@ func (p *Predictor) addInput(ten *tensor.Dense) {
 }
 
 func (p *Predictor) ReadPredictionOutput() ([]tensor.Tensor, error) {
-	defer PanicOnError()
-
 	C.ORT_PredictorConvertOutput(p.ctx)
 
 	cNumOutputs := int(C.ORT_PredictorNumOutputs(p.ctx))
