@@ -17,7 +17,7 @@ func main() {
 
 	predictor, err := onnxruntime.New(model)
 	if err != nil {
-		log.Fatalf("Onnxruntime predictor initialization failed %v", err)
+		log.Fatalf("Onnxruntime predictor initialization failed: %v", err)
 	}
 	defer predictor.Close()
 
@@ -34,12 +34,12 @@ func main() {
 		),
 	})
 	if err != nil {
-		log.Fatalf("Onnxruntime predictor predicting failed %v", err)
+		log.Fatalf("Onnxruntime predictor predicting failed: %v", err)
 	}
 
 	output, err := predictor.ReadPredictionOutput()
 	if err != nil {
-		log.Fatalf("Onnxruntime predictor read prediction output failed %v", err)
+		log.Fatalf("Onnxruntime predictor read prediction output failed: %v", err)
 	}
 
 	fmt.Println(output[0].Data().([]float32))

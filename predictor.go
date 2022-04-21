@@ -19,16 +19,23 @@ type Predictor struct {
 func New(model []byte) (*Predictor, error) {
 	modelPtr := unsafe.Pointer(&model[0])
 
+	ret := C.ORT_NewPredictor(modelPtr, C.size_t(len(model)), C.CPU_DEVICE_KIND, C.int(0))
+	if ret.pstrErr != nil {
+		s := C.GoString(ret.pstrErr)
+		C.free(unsafe.Pointer(ret.pstrErr))
+		return nil, fmt.Errorf(s)
+	}
+
 	pred := &Predictor{
 		model: model,
-		ctx:   C.ORT_NewPredictor(modelPtr, C.size_t(len(model)), C.CPU_DEVICE_KIND, C.int(0)),
+		ctx:   ret.ctx,
 	}
 
 	runtime.SetFinalizer(pred, func(p *Predictor) {
 		p.Close()
 	})
 
-	return pred, GetError()
+	return pred, nil
 }
 
 func (p *Predictor) Close() {
@@ -47,22 +54,34 @@ func (p *Predictor) Predict(inputs []tensor.Tensor) error {
 		return fmt.Errorf("input nil or empty")
 	}
 
-	C.ORT_PredictorClear(p.ctx)
+	errMsg := C.ORT_PredictorClear(p.ctx)
+	if errMsg != nil {
+		s := C.GoString(errMsg)
+		C.free(unsafe.Pointer(errMsg))
+		return fmt.Errorf(s)
+	}
 
 	for _, input := range inputs {
 		dense, ok := input.(*tensor.Dense)
 		if !ok {
 			return fmt.Errorf("expecting a dense tensor")
 		}
-		p.addInput(dense)
+		if err := p.addInput(dense); err != nil {
+			return err
+		}
 	}
 
-	C.ORT_PredictorRun(p.ctx)
+	errMsg = C.ORT_PredictorRun(p.ctx)
+	if errMsg != nil {
+		s := C.GoString(errMsg)
+		C.free(unsafe.Pointer(errMsg))
+		return fmt.Errorf(s)
+	}
 
-	return GetError()
+	return nil
 }
 
-func (p *Predictor) addInput(ten *tensor.Dense) {
+func (p *Predictor) addInput(ten *tensor.Dense) error {
 	shape := make([]int64, len(ten.Shape()))
 	for i, s := range ten.Shape() {
 		shape[i] = int64(s)
@@ -71,31 +90,37 @@ func (p *Predictor) addInput(ten *tensor.Dense) {
 	shapePtr = (*C.int64_t)(unsafe.Pointer(&shape[0]))
 	tenPtr := unsafe.Pointer(&ten.Header.Raw[0])
 
-	C.ORT_AddInput(p.ctx, tenPtr, shapePtr, C.int(len(shape)), fromType(ten))
+	errMsg := C.ORT_AddInput(p.ctx, tenPtr, shapePtr, C.int(len(shape)), fromType(ten))
+	if errMsg != nil {
+		s := C.GoString(errMsg)
+		C.free(unsafe.Pointer(errMsg))
+		return fmt.Errorf(s)
+	}
 
 	runtime.KeepAlive(tenPtr)
 	runtime.KeepAlive(shape)
+
+	return nil
 }
 
 func (p *Predictor) ReadPredictionOutput() ([]tensor.Tensor, error) {
-	C.ORT_PredictorConvertOutput(p.ctx)
+	errMsg := C.ORT_PredictorConvertOutput(p.ctx)
+	if errMsg != nil {
+		s := C.GoString(errMsg)
+		C.free(unsafe.Pointer(errMsg))
+		return nil, fmt.Errorf(s)
+	}
 
 	cNumOutputs := int(C.ORT_PredictorNumOutputs(p.ctx))
-
 	if cNumOutputs == 0 {
 		return nil, fmt.Errorf("zero number of tensors")
 	}
 
 	res := make([]tensor.Tensor, cNumOutputs)
-
 	for i := 0; i < cNumOutputs; i++ {
 		cPredictions := C.ORT_PredictorGetOutput(p.ctx, C.int(i))
 		// The allocated memory will be deleted when destructor of predictor in c++ is called
 		res[i] = ortValueToTensor(cPredictions)
-	}
-
-	if err := GetError(); err != nil {
-		return nil, err
 	}
 
 	return res, nil

@@ -1,7 +1,6 @@
 #ifndef __PREDICTOR_HPP__
 #define __PREDICTOR_HPP__
 
-
 #include <stdbool.h>
 #ifdef __cplusplus
 #include <onnxruntime_cxx_api.h>
@@ -10,48 +9,39 @@ extern "C" {
 #include <onnxruntime_c_api.h>
 #endif  /* __cplusplus */
 
-  typedef struct ORT_Error {
-    char* message;
-  } ORT_Error;
+    typedef struct ORT_Value {
+        ONNXTensorElementDataType otype;
+        void *data_ptr;
+        int64_t *shape_ptr;
+        size_t shape_len;
+    } ORT_Value;
 
-  typedef struct ORT_Value {
-    ONNXTensorElementDataType otype;
-    void *data_ptr;
-    int64_t *shape_ptr;
-    size_t shape_len;
-  } ORT_Value;
+    typedef enum { UNKNOWN_DEVICE_KIND = -1, CPU_DEVICE_KIND = 0, CUDA_DEVICE_KIND = 1 } ORT_DeviceKind;
+    typedef void* ORT_PredictorContext;
 
-  extern ORT_Error ORT_GlobalError;
-  typedef enum { UNKNOWN_DEVICE_KIND = -1, CPU_DEVICE_KIND = 0, CUDA_DEVICE_KIND = 1 } ORT_DeviceKind;
-  typedef void* ORT_PredictorContext;
-  typedef void* ORT_TensorContext;
+    typedef struct NP_HANDLE_ERR {
+        ORT_PredictorContext ctx;
+        const char *pstrErr;
+    } NP_HANDLE_ERR;
 
-  // Predictor + Profiling interface for Go
+    // Predictor interface for Go
 
-  ORT_PredictorContext ORT_NewPredictor(void* model_data, size_t model_data_length, ORT_DeviceKind device, int device_id);
+    NP_HANDLE_ERR ORT_NewPredictor(void* model_data, size_t model_data_length, ORT_DeviceKind device, int device_id);
 
-  void ORT_PredictorClear(ORT_PredictorContext pred);
+    char* ORT_PredictorClear(ORT_PredictorContext pred);
 
-  void ORT_PredictorRun(ORT_PredictorContext pred);
+    char* ORT_PredictorRun(ORT_PredictorContext pred);
 
-  void ORT_PredictorConvertOutput(ORT_PredictorContext pred);
+    char* ORT_PredictorConvertOutput(ORT_PredictorContext pred);
 
-  int ORT_PredictorNumOutputs(ORT_PredictorContext pred);
+    int ORT_PredictorNumOutputs(ORT_PredictorContext pred);
 
-  ORT_Value ORT_PredictorGetOutput(ORT_PredictorContext pred, int index);
+    ORT_Value ORT_PredictorGetOutput(ORT_PredictorContext pred, int index);
 
-  void ORT_PredictorDelete(ORT_PredictorContext pred);
+    void ORT_PredictorDelete(ORT_PredictorContext pred);
 
-  void ORT_AddInput(ORT_PredictorContext pred, void *input, int64_t *dimensions,
+    char* ORT_AddInput(ORT_PredictorContext pred, void *input, int64_t *dimensions,
                     int n_dim, ONNXTensorElementDataType dtype);
-
-  // Error interface for Go
-
-  int ORT_HasError();
-
-  const char* ORT_GetErrorString();
-
-  void ORT_ResetError();
 
 #ifdef __cplusplus
 }
