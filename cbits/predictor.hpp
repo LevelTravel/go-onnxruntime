@@ -28,6 +28,8 @@ extern "C" {
 
     NP_HANDLE_ERR ORT_NewPredictor(void* model_data, size_t model_data_length, ORT_DeviceKind device, int device_id);
 
+    void ORT_Init();
+
     char* ORT_PredictorClear(ORT_PredictorContext pred);
 
     char* ORT_PredictorRun(ORT_PredictorContext pred);

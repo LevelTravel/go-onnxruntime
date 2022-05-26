@@ -11,6 +11,10 @@ import (
 	"gorgonia.org/tensor"
 )
 
+func init() {
+	C.ORT_Init()
+}
+
 type Predictor struct {
 	model []byte
 	ctx   C.ORT_PredictorContext
@@ -45,8 +49,9 @@ func (p *Predictor) Close() {
 
 	if p.ctx != nil {
 		C.ORT_PredictorDelete(p.ctx)
+		p.ctx = nil
+		p.model = nil
 	}
-	p.ctx = nil
 }
 
 func (p *Predictor) Predict(inputs []tensor.Tensor) error {

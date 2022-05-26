@@ -22,6 +22,8 @@ using std::string;
  * Note: Call ConvertOutput before you want to read the outputs
  */
 struct Predictor {
+  static void Init();
+
   Predictor(void* model_data, size_t model_data_length, ORT_DeviceKind device, int device_id);
   ~Predictor();
   void Predict(void);
@@ -29,33 +31,12 @@ struct Predictor {
   void AddOutput(Ort::Value&);
   void Clear(void);
   void *ConvertTensorToPointer(Ort::Value&, size_t);
-  struct Onnxruntime_Env {
-    Ort::Env env_;
-    Ort::SessionOptions session_options_;
-    /* Description: Follow the sample given in onnxruntime to initialize the environment
-     * Referenced: https://github.com/microsoft/onnxruntime/blob/master/csharp/test/Microsoft.ML.OnnxRuntime.EndToEndTests.Capi/CXX_Api_Sample.cpp
-     */
-    Onnxruntime_Env(ORT_DeviceKind device, int device_id) : env_(ORT_LOGGING_LEVEL_ERROR, "ort_predict") {
-      // Initialize environment, could use ORT_LOGGING_LEVEL_VERBOSE to get more information
-      // NOTE: Only one instance of env can exist at any point in time
 
-      #ifdef ORT_WITH_GPU
-      if (device == CUDA_DEVICE_KIND) {
-        OrtSessionOptionsAppendExecutionProvider_CUDA(session_options_, device_id /* device id */);
-      }
-      #endif
+  static Ort::Env *ortEnv;
+  static Ort::Env &OrtEnv() { return *ortEnv; }
 
-      // Sets graph optimization level
-      // Available levels are
-      // ORT_DISABLE_ALL -> To disable all optimizations
-      // ORT_ENABLE_BASIC -> To enable basic optimizations (Such as redundant node removals)
-      // ORT_ENABLE_EXTENDED -> To enable extended optimizations (Includes level 1 + more complex optimizations like node fusions)
-      // ORT_ENABLE_ALL -> To Enable All possible opitmizations
-      session_options_.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
-    }
-  } ort_env_;
   // Order matters when using member initializer lists
-  Ort::Session session_;
+  std::unique_ptr<Ort::Session> session_;
   Ort::AllocatorWithDefaultOptions allocator_;
   std::vector<const char*> input_node_;
   std::vector<Ort::Value> input_;
@@ -67,25 +48,37 @@ struct Predictor {
 /* Description: Follow the sample given in onnxruntime to initialize the predictor
  * Referenced: https://github.com/microsoft/onnxruntime/blob/master/csharp/test/Microsoft.ML.OnnxRuntime.EndToEndTests.Capi/CXX_Api_Sample.cpp
  */
-Predictor::Predictor(void* model_data, size_t model_data_length, ORT_DeviceKind device, int device_id)
-  : ort_env_(device, device_id),
-    session_(ort_env_.env_, model_data, model_data_length, ort_env_.session_options_) {
+Predictor::Predictor(void* model_data, size_t model_data_length, ORT_DeviceKind device, int device_id) {
+  Ort::SessionOptions session_options_;
+  session_options_.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+
+  session_.reset(new Ort::Session(OrtEnv(), model_data, model_data_length, session_options_));
 
   // get input info
-  size_t num_input_nodes = session_.GetInputCount();
+  size_t num_input_nodes = session_->GetInputCount();
 
   for (size_t i = 0; i < num_input_nodes; i++) {
     // get input node names and dimensions
-    input_node_.push_back(session_.GetInputName(i, allocator_));
+    input_node_.push_back(session_->GetInputName(i, allocator_));
   }
 
   // get output info
-  size_t num_output_nodes = session_.GetOutputCount();
+  size_t num_output_nodes = session_->GetOutputCount();
 
   for (size_t i = 0; i < num_output_nodes; i++) {
     // get output node names
-    output_node_.push_back(session_.GetOutputName(i, allocator_));
+    output_node_.push_back(session_->GetOutputName(i, allocator_));
   }
+}
+
+Ort::Env *Predictor::ortEnv;
+
+void Predictor::Init() {
+    ortEnv = new Ort::Env{ORT_LOGGING_LEVEL_ERROR, "ort_predict"};
+}
+
+void ORT_Init() {
+    Predictor::Init();
 }
 
 /* Description: clean up the predictor for next prediction */
@@ -112,7 +105,7 @@ void Predictor::Predict(void) {
     throw std::runtime_error(std::string("invalid number of input tensor in Predictor::Predict"));
   }
 
-  output_ = session_.Run(Ort::RunOptions{nullptr}, input_node_.data(), input_.data(),
+  output_ = session_->Run(Ort::RunOptions{nullptr}, input_node_.data(), input_.data(),
                          input_.size(), output_node_.data(), output_node_.size());
 }
 
