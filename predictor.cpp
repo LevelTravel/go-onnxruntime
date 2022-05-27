@@ -49,10 +49,11 @@ struct Predictor {
  * Referenced: https://github.com/microsoft/onnxruntime/blob/master/csharp/test/Microsoft.ML.OnnxRuntime.EndToEndTests.Capi/CXX_Api_Sample.cpp
  */
 Predictor::Predictor(void* model_data, size_t model_data_length, ORT_DeviceKind device, int device_id) {
-  Ort::SessionOptions session_options_;
-  session_options_.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+  Ort::SessionOptions session_options;
+  session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+  session_options.DisablePerSessionThreads();
 
-  session_.reset(new Ort::Session(OrtEnv(), model_data, model_data_length, session_options_));
+  session_.reset(new Ort::Session(OrtEnv(), model_data, model_data_length, session_options));
 
   // get input info
   size_t num_input_nodes = session_->GetInputCount();
@@ -74,7 +75,12 @@ Predictor::Predictor(void* model_data, size_t model_data_length, ORT_DeviceKind 
 Ort::Env *Predictor::ortEnv;
 
 void Predictor::Init() {
-    ortEnv = new Ort::Env{ORT_LOGGING_LEVEL_ERROR, "ort_predict"};
+    OrtThreadingOptions* envOpts = nullptr;
+    Ort::GetApi().CreateThreadingOptions(&envOpts);
+    Ort::GetApi().SetGlobalIntraOpNumThreads(envOpts, 0);
+    Ort::GetApi().SetGlobalInterOpNumThreads(envOpts, 0);
+    Ort::GetApi().SetGlobalSpinControl(envOpts, 0);
+    ortEnv = new Ort::Env(envOpts, ORT_LOGGING_LEVEL_ERROR, "ort_predict");
 }
 
 void ORT_Init() {
