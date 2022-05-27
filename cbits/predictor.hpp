@@ -26,7 +26,7 @@ extern "C" {
 
     // Predictor interface for Go
 
-    NP_HANDLE_ERR ORT_NewPredictor(void* model_data, size_t model_data_length, ORT_DeviceKind device, int device_id);
+    NP_HANDLE_ERR ORT_NewPredictor(const char *model_file);
 
     void ORT_Init();
 

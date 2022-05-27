@@ -16,14 +16,14 @@ func init() {
 }
 
 type Predictor struct {
-	model []byte
-	ctx   C.ORT_PredictorContext
+	ctx C.ORT_PredictorContext
 }
 
-func New(model []byte) (*Predictor, error) {
-	modelPtr := unsafe.Pointer(&model[0])
+func New(modelFile string) (*Predictor, error) {
+	cModelFile := C.CString(modelFile)
+	defer C.free(unsafe.Pointer(cModelFile))
 
-	ret := C.ORT_NewPredictor(modelPtr, C.size_t(len(model)), C.CPU_DEVICE_KIND, C.int(0))
+	ret := C.ORT_NewPredictor(cModelFile)
 	if ret.pstrErr != nil {
 		s := C.GoString(ret.pstrErr)
 		C.free(unsafe.Pointer(ret.pstrErr))
@@ -31,8 +31,7 @@ func New(model []byte) (*Predictor, error) {
 	}
 
 	pred := &Predictor{
-		model: model,
-		ctx:   ret.ctx,
+		ctx: ret.ctx,
 	}
 
 	runtime.SetFinalizer(pred, func(p *Predictor) {
@@ -50,7 +49,6 @@ func (p *Predictor) Close() {
 	if p.ctx != nil {
 		C.ORT_PredictorDelete(p.ctx)
 		p.ctx = nil
-		p.model = nil
 	}
 }
 

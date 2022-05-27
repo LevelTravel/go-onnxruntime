@@ -24,7 +24,7 @@ using std::string;
 struct Predictor {
   static void Init();
 
-  Predictor(void* model_data, size_t model_data_length, ORT_DeviceKind device, int device_id);
+  Predictor(const string &model_file);
   ~Predictor();
   void Predict(void);
   void ConvertOutput(void);
@@ -48,12 +48,12 @@ struct Predictor {
 /* Description: Follow the sample given in onnxruntime to initialize the predictor
  * Referenced: https://github.com/microsoft/onnxruntime/blob/master/csharp/test/Microsoft.ML.OnnxRuntime.EndToEndTests.Capi/CXX_Api_Sample.cpp
  */
-Predictor::Predictor(void* model_data, size_t model_data_length, ORT_DeviceKind device, int device_id) {
+Predictor::Predictor(const string &model_file) {
   Ort::SessionOptions session_options;
   session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
   session_options.DisablePerSessionThreads();
 
-  session_.reset(new Ort::Session(OrtEnv(), model_data, model_data_length, session_options));
+  session_.reset(new Ort::Session(OrtEnv(), model_file.c_str(), session_options));
 
   // get input info
   size_t num_input_nodes = session_->GetInputCount();
@@ -212,10 +212,10 @@ void Predictor::ConvertOutput(void) {
 }
 
 /* Description: The interface for Go to create a new predictor */
-NP_HANDLE_ERR ORT_NewPredictor(void* model_data, size_t model_data_length, ORT_DeviceKind device, int device_id) {
+NP_HANDLE_ERR ORT_NewPredictor(const char *model_file) {
     NP_HANDLE_ERR result = {0};
     try {
-        const auto ctx = new Predictor(model_data, model_data_length, device, device_id);
+        const auto ctx = new Predictor(model_file);
         result.ctx = (ORT_PredictorContext) ctx;
     } catch (const std::exception &e) {
         result.pstrErr = strdup(e.what());
