@@ -3,19 +3,13 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/LevelTravel/go-onnxruntime"
 	"gorgonia.org/tensor"
 )
 
 func main() {
-	model, err := os.ReadFile("./examples/model.onnx")
-	if err != nil {
-		log.Fatalf("model load failed %v", err)
-	}
-
-	predictor, err := onnxruntime.New(model)
+	predictor, err := onnxruntime.New("./examples/model.onnx")
 	if err != nil {
 		log.Fatalf("Onnxruntime predictor initialization failed: %v", err)
 	}

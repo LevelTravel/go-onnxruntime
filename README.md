@@ -7,7 +7,7 @@ This is [https://github.com/c3sr/go-onnxruntime](https://github.com/c3sr/go-onnx
 
 The binding requires Onnxruntime C++.
 
-The Go binding for Onnxruntime C++ API in this repository is built based on Onnxruntime v1.11.0.
+The Go binding for Onnxruntime C++ API in this repository is built based on Onnxruntime v1.12.1.
 
 To install Onnxruntime C++ on your system, download runtime libraries from [Onnxruntime](https://github.com/microsoft/onnxruntime).
 
