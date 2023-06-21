@@ -59,16 +59,22 @@ Predictor::Predictor(const string &model_file) {
   size_t num_input_nodes = session_->GetInputCount();
 
   for (size_t i = 0; i < num_input_nodes; i++) {
-    // get input node names and dimensions
-    input_node_.push_back(session_->GetInputName(i, allocator_));
+    auto inputNodeName = session_->GetInputNameAllocated(i, allocator_);
+    std::string inputName = inputNodeName.get();
+    char * cstr = new char [inputName.length()+1];
+    std::strcpy(cstr, inputName.c_str());
+    input_node_.push_back(cstr);
   }
 
   // get output info
   size_t num_output_nodes = session_->GetOutputCount();
 
   for (size_t i = 0; i < num_output_nodes; i++) {
-    // get output node names
-    output_node_.push_back(session_->GetOutputName(i, allocator_));
+    auto outputNodeName = session_->GetOutputNameAllocated(i, allocator_);
+    std::string outputName = outputNodeName.get();
+    char * cstr = new char [outputName.length()+1];
+    std::strcpy(cstr, outputName.c_str());
+    output_node_.push_back(cstr);
   }
 }
 
